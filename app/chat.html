@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXUS AI — Chat</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:#090d16;color:#edf0ff}
+*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}
+.app{height:100dvh;display:grid;grid-template-columns:280px 1fr;background:#090d16}
+.side{background:#0e1422;border-right:1px solid #202b42;padding:18px;display:flex;flex-direction:column;min-height:0}
+.brand{font-size:21px;font-weight:850;letter-spacing:.6px;color:#c0b4ff;padding:6px 4px 18px}
+.btn{border:1px solid #34415e;border-radius:11px;background:#18233a;color:#e9edff;padding:11px 13px;cursor:pointer;font-weight:650}
+.btn.primary{background:#7963ed;border-color:#7963ed;color:white}.btn:hover{filter:brightness(1.12)}
+.history{overflow:auto;margin-top:20px;flex:1}.history button{display:block;width:100%;text-align:left;margin:4px 0;background:transparent;border:0;color:#aeb9d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:10px;border-radius:9px}
+.history button.active,.history button:hover{background:#1b2740;color:white}
+.sidefoot{font-size:11px;line-height:1.5;color:#8290ad;border-top:1px solid #26314a;padding-top:14px}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{height:68px;display:flex;align-items:center;gap:12px;padding:12px 24px;border-bottom:1px solid #202b42;background:#0c1220}
+.agentpick{max-width:330px;background:#151f34;border:1px solid #34415e;color:white;border-radius:10px;padding:10px 12px}
+.model{font-size:11px;color:#99a8c8;border:1px solid #34415e;border-radius:20px;padding:6px 9px}
+.topright{margin-left:auto;display:flex;gap:8px;align-items:center}
+.status{font-size:11px;color:#8bd9b2}
+.messages{flex:1;overflow:auto;padding:26px 18px 40px;scroll-behavior:smooth}
+.thread{max-width:850px;margin:auto;display:flex;flex-direction:column;gap:20px}
+.welcome{text-align:center;margin:auto;padding:50px 12px;max-width:650px}.welcome h1{font-size:30px;margin:0 0 10px}.welcome p{color:#9caac6;line-height:1.6}
+.msg{display:flex;gap:12px;align-items:flex-start}.avatar{width:30px;height:30px;border-radius:10px;background:#222e4b;display:grid;place-items:center;flex-shrink:0;color:#c7bbff;font-weight:800}
+.msg.user .avatar{background:#42377b;color:white}.bubble{max-width:min(760px,calc(100% - 42px));line-height:1.65;color:#e5eaff;overflow-wrap:anywhere}
+.msg.user .bubble{background:#202c47;border:1px solid #2e3c5d;padding:12px 15px;border-radius:4px 14px 14px 14px}
+.msg.assistant .bubble{padding:3px 0}
+.bubble pre{white-space:pre-wrap;background:#0a1020;border:1px solid #2c3955;border-radius:10px;padding:13px;overflow:auto}.bubble code{background:#1b2740;border-radius:5px;padding:2px 5px}.bubble pre code{background:none;padding:0}
+.bubble p{margin:0 0 12px}.bubble ul{padding-left:22px}.bubble h1,.bubble h2,.bubble h3{margin:16px 0 8px}
+.composer-wrap{padding:12px 18px 18px;background:linear-gradient(transparent,#090d16 25%)}
+.composer{max-width:850px;margin:auto;border:1px solid #35415e;background:#111a2c;border-radius:18px;padding:10px 12px;box-shadow:0 12px 50px #0005}
+.attachments{display:flex;flex-wrap:wrap;gap:6px;padding:2px 4px 8px}.filechip{font-size:11px;color:#c2cce2;background:#202d48;border-radius:20px;padding:5px 9px}
+textarea{width:100%;resize:none;min-height:48px;max-height:180px;background:transparent;border:0;outline:0;color:white;padding:8px;font-size:15px}
+.tools{display:flex;align-items:center;gap:8px}.tools .hint{font-size:10px;color:#8190ae;margin-left:4px}.tools .send{margin-left:auto}
+.iconbtn{width:38px;height:38px;border-radius:11px;background:#202d48;border:1px solid #34415e;color:#e6eaff;cursor:pointer;font-size:18px}
+.send{width:40px;height:38px;border-radius:11px;background:#7963ed;color:white;border:0;cursor:pointer;font-size:18px}
+.note{text-align:center;font-size:10px;color:#7786a3;margin:9px auto 0;max-width:850px}
+.hidden{display:none!important}
+@media(max-width:760px){.app{grid-template-columns:1fr}.side{display:none}.top{padding:10px 12px;height:62px}.messages{padding:18px 12px 30px}.composer-wrap{padding:8px 10px 12px}.agentpick{max-width:58vw}.model{display:none}.welcome h1{font-size:25px}}
+</style></head>
+<body><div class="app">
+<aside class="side"><div class="brand">✦ NEXUS AI</div><button class="btn primary" id="newchat">＋ New chat</button><div class="history" id="history"></div><div class="sidefoot">Public beta · Chats and uploaded text are saved in this browser's private session. Avoid uploading confidential information.</div></aside>
+<main class="main">
+<header class="top"><div class="brand" style="display:none" id="mobilebrand">✦ NEXUS</div><select class="agentpick" id="agent"></select><span class="model" id="model">Model</span><div class="topright"><span class="status" id="status">Ready</span><button class="btn" id="newmobile">＋</button></div></header>
+<section class="messages" id="messages"><div class="thread" id="thread"><div class="welcome"><h1>What can I help you with?</h1><p>Choose an agent, ask a question, or upload documents for analysis. Your conversations stay separate from other browser sessions.</p></div></div></section>
+<div class="composer-wrap"><div class="composer"><div class="attachments" id="attachments"></div><textarea id="prompt" rows="1" placeholder="Message NEXUS AI…"></textarea><div class="tools"><input type="file" id="files" class="hidden" multiple accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,.json,.py,.js,.html,.xml,.yaml,.yml"><button class="iconbtn" id="attach" title="Upload documents">＋</button><span class="hint">PDF · DOCX · PPTX · XLSX · CSV · TXT · max 8 MB each</span><button class="send" id="send" title="Send">↑</button></div></div><div class="note">AI can make mistakes. Check important information. Public access is rate-limited to 40 messages per browser per day.</div></div>
+</main></div>
+<script>
+const $=id=>document.getElementById(id);
+let guest=localStorage.getItem("nexus_guest_id");
+if(!guest){guest=crypto.randomUUID();localStorage.setItem("nexus_guest_id",guest)}
+let agents=[],conversations=[],activeConversation=null,uploaded=[];
+const headers={"X-Guest-ID":guest};
+async function api(path,options={}){const res=await fetch(path,{...options,headers:{...headers,...(options.headers||{})}});let data;try{data=await res.json()}catch{data={detail:"Unexpected server response"}}if(!res.ok)throw new Error(data.detail||"Request failed");return data}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function markdown(s){let out=esc(s);out=out.replace(/```([\s\S]*?)```/g,(_,x)=>"<pre><code>"+x.trim()+"</code></pre>");out=out.replace(/`([^`]+)`/g,"<code>$1</code>");out=out.replace(/^### (.*)$/gm,"<h3>$1</h3>").replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>");out=out.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\*(.*?)\*/g,"<em>$1</em>");out=out.replace(/^(?:- |\* )(.*)$/gm,"<li>$1</li>");out=out.replace(/(?:<li>.*<\/li>\n?)+/g,x=>"<ul>"+x+"</ul>");return out.split(/\n\n+/).map(p=>p.startsWith("<pre>")||p.startsWith("<h")||p.startsWith("<ul>")?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("")}
+function setStatus(s){$("status").textContent=s}
+function renderMessage(role,content){const d=document.createElement("div");d.className="msg "+role;const a=document.createElement("div");a.className="avatar";a.textContent=role==="user"?"Y":"✦";const b=document.createElement("div");b.className="bubble";b.innerHTML=role==="assistant"?markdown(content):esc(content).replace(/\n/g,"<br>");d.append(a,b);$("thread").append(d);$("messages").scrollTop=$("messages").scrollHeight;return d}
+async function init(){try{agents=await api("/api/public/agents");$("agent").innerHTML=agents.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>').join("");$("agent").addEventListener("change",()=>{const a=agents.find(x=>x.id===$("agent").value);$("model").textContent=a?a.model:"";newChat()});const first=agents[0];if(first)$("model").textContent=first.model;conversations=await api("/api/public/conversations");renderHistory();if(conversations.length){await openConversation(conversations[0].id)}else if(first){await newChat()}else{setStatus("No agents are published yet")}}catch(e){setStatus(e.message)}}
+function renderHistory(){$("history").replaceChildren();for(const c of conversations){const b=document.createElement("button");b.textContent=c.title||"New chat";b.className=c.id===activeConversation?"active":"";b.onclick=()=>openConversation(c.id);$("history").append(b)}}
+async function newChat(){const agentId=$("agent").value;if(!agentId)return;try{const c=await api("/api/public/conversations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agent_id:agentId,title:"New chat"})});activeConversation=c.id;conversations.unshift({id:c.id,agent_id:agentId,title:"New chat"});renderHistory();$("thread").innerHTML="";uploaded=[];renderFiles();setStatus("New chat ready");$("prompt").focus()}catch(e){setStatus(e.message)}}
+async function openConversation(id){try{activeConversation=id;const c=conversations.find(x=>x.id===id);if(c){$("agent").value=c.agent_id;const a=agents.find(x=>x.id===c.agent_id);$("model").textContent=a?a.model:""}$("thread").replaceChildren();const msgs=await api("/api/public/conversations/"+id+"/messages");if(!msgs.length)$("thread").innerHTML='<div class="welcome"><h1>Start a conversation</h1><p>Ask a question or attach a document below.</p></div>';else msgs.forEach(m=>renderMessage(m.role,m.content));uploaded=await api("/api/public/conversations/"+id+"/documents");renderFiles();renderHistory();setStatus("Ready")}catch(e){setStatus(e.message)}}
+function renderFiles(){$("attachments").innerHTML=uploaded.map(f=>'<span class="filechip">📎 '+esc(f.filename)+'</span>').join("")}
+async function uploadFiles(files){if(!activeConversation){await newChat()}for(const f of files){setStatus("Uploading "+f.name+"…");const form=new FormData();form.append("file",f);try{const result=await api("/api/public/conversations/"+activeConversation+"/upload",{method:"POST",body:form});uploaded.push(result);renderFiles();setStatus("Uploaded "+f.name)}catch(e){setStatus(f.name+": "+e.message)}}}
+async function send(){const text=$("prompt").value.trim();if(!text||!activeConversation)return;$("prompt").value="";$("prompt").style.height="48px";const welcome=$("thread").querySelector(".welcome");if(welcome)welcome.remove();renderMessage("user",text);const pending=renderMessage("assistant","Thinking…");$("send").disabled=true;setStatus("Thinking…");try{const r=await api("/api/public/conversations/"+activeConversation+"/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});pending.querySelector(".bubble").innerHTML=markdown(r.answer);setStatus("Ready");const c=conversations.find(x=>x.id===activeConversation);if(c&&c.title==="New chat"){c.title=text.slice(0,42);renderHistory()}}catch(e){pending.querySelector(".bubble").textContent="Error: "+e.message;setStatus("Error")}finally{$("send").disabled=false;$("prompt").focus()}}
+$("newchat").onclick=newChat;$("newmobile").onclick=newChat;$("send").onclick=send;$("attach").onclick=()=>$("files").click();$("files").onchange=e=>{uploadFiles(e.target.files);e.target.value=""};$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});$("prompt").addEventListener("input",()=>{$("prompt").style.height="48px";$("prompt").style.height=Math.min($("prompt").scrollHeight,180)+"px"});init();
+</script></body></html>
