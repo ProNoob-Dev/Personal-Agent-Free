@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
+import psycopg
+from psycopg.rows import dict_row
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -18,11 +20,38 @@ PROVIDERS = {
     "openrouter": "openai/gpt-4o-mini",
 }
 
+class DatabaseConnection:
+    """Small DB-API adapter: PostgreSQL in production, SQLite for local tests."""
+    def __init__(self):
+        self.database_url = os.getenv("DATABASE_URL")
+        if self.database_url:
+            self.db = psycopg.connect(self.database_url, row_factory=dict_row, connect_timeout=10)
+            self.is_postgres = True
+        else:
+            Path(DB).parent.mkdir(parents=True, exist_ok=True)
+            self.db = sqlite3.connect(DB, timeout=20)
+            self.db.row_factory = sqlite3.Row
+            self.is_postgres = False
+
+    def execute(self, sql, params=()):
+        if self.is_postgres:
+            sql = sql.replace("?", "%s")
+        return self.db.execute(sql, params)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        try:
+            if exc_type is None:
+                self.db.commit()
+            else:
+                self.db.rollback()
+        finally:
+            self.db.close()
+
 def connection():
-    Path(DB).parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DB, timeout=20)
-    db.row_factory = sqlite3.Row
-    return db
+    return DatabaseConnection()
 
 @asynccontextmanager
 async def lifespan(app):
@@ -114,7 +143,7 @@ def messages(agent_id: str, x_api_key: str | None = Header(default=None)):
     authorize(x_api_key)
     with connection() as db:
         return [rowdict(r) for r in db.execute(
-            "SELECT * FROM messages WHERE agent_id=? ORDER BY created_at, rowid LIMIT 100",
+            "SELECT * FROM messages WHERE agent_id=? ORDER BY created_at, id LIMIT 100",
             (agent_id,))]
 
 async def inference(agent, history):
@@ -158,7 +187,7 @@ async def chat(agent_id: str, request: ChatIn, x_api_key: str | None = Header(de
         if not agent:
             raise HTTPException(404, "Agent not found")
         history = [{"role": r["role"], "content": r["content"]} for r in db.execute(
-            "SELECT role, content FROM messages WHERE agent_id=? ORDER BY created_at DESC, rowid DESC LIMIT 18",
+            "SELECT role, content FROM messages WHERE agent_id=? ORDER BY created_at DESC, id DESC LIMIT 18",
             (agent_id,))][::-1]
     started = time.monotonic()
     try:
@@ -182,10 +211,10 @@ def stats(x_api_key: str | None = Header(default=None)):
     authorize(x_api_key)
     with connection() as db:
         return {
-            "agents": db.execute("SELECT COUNT(*) FROM agents").fetchone()[0],
-            "messages": db.execute("SELECT COUNT(*) FROM messages").fetchone()[0],
-            "runs": db.execute("SELECT COUNT(*) FROM runs").fetchone()[0],
-            "average_latency_ms": round(db.execute("SELECT COALESCE(AVG(latency_ms),0) FROM runs").fetchone()[0]),
+            "agents": db.execute("SELECT COUNT(*) AS count FROM agents").fetchone()["count"],
+            "messages": db.execute("SELECT COUNT(*) AS count FROM messages").fetchone()["count"],
+            "runs": db.execute("SELECT COUNT(*) AS count FROM runs").fetchone()["count"],
+            "average_latency_ms": round(db.execute("SELECT COALESCE(AVG(latency_ms),0) AS average FROM runs").fetchone()["average"]),
         }
 
 @app.get("/", response_class=HTMLResponse)
