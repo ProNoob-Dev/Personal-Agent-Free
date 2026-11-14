@@ -7,8 +7,9 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
+from xml.sax.saxutils import escape
 
 from .main import connection, inference
 
@@ -149,7 +150,62 @@ async def upload_document(conversation_id: str, file: UploadFile = File(...), x_
             did, conversation_id, filename, file.content_type or "application/octet-stream", extracted, int(time.time())))
     return {"id": did, "filename": filename, "characters": len(extracted)}
 
-@router.post("/api/public/conversations/{conversation_id}/chat")
+
+class PdfExportIn(BaseModel):
+    content: str = Field(min_length=1, max_length=30000)
+    filename: str = Field(default="NEXUS-AI-Document", max_length=100)
+
+@router.post("/api/public/conversations/{conversation_id}/export-pdf")
+def export_pdf(conversation_id: str, request: PdfExportIn, x_guest_id: str | None = Header(default=None)):
+    guest = guest_identity(x_guest_id)
+    with connection() as db:
+        owned_conversation(db, conversation_id, guest)
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+        output = io.BytesIO()
+        doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=19*mm, leftMargin=19*mm,
+                                topMargin=18*mm, bottomMargin=18*mm, title=request.filename)
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name="ResumeTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+                                  fontSize=18, leading=22, alignment=TA_CENTER, textColor=colors.HexColor("#172554"), spaceAfter=9))
+        styles.add(ParagraphStyle(name="SectionHead", parent=styles["Heading2"], fontSize=11, leading=14,
+                                  textColor=colors.HexColor("#1d4ed8"), spaceBefore=9, spaceAfter=4))
+        styles.add(ParagraphStyle(name="BodyCustom", parent=styles["BodyText"], fontSize=9, leading=12,
+                                  spaceAfter=4, textColor=colors.HexColor("#202938")))
+        story = []
+        for rawline in request.content.replace("\\r", "").split("\\n"):
+            line = rawline.strip()
+            if not line:
+                story.append(Spacer(1, 3))
+                continue
+            if line in ("---", "***"):
+                story.append(HRFlowable(width="100%", color=colors.HexColor("#cbd5e1"), thickness=.6, spaceBefore=4, spaceAfter=5))
+                continue
+            clean = escape(line)
+            if line.startswith("# "):
+                story.append(Paragraph(clean[2:], styles["ResumeTitle"]))
+            elif line.startswith("## "):
+                story.append(Paragraph(clean[3:], styles["SectionHead"]))
+            elif line.startswith("### "):
+                story.append(Paragraph(clean[4:], styles["Heading3"]))
+            elif line.startswith(("- ", "* ", "• ")):
+                story.append(Paragraph("&#8226; " + clean[2:], styles["BodyCustom"]))
+            else:
+                clean = re.sub(r"\\*\\*(.*?)\\*\\*", r"<b>\\1</b>", clean)
+                clean = re.sub(r"\\*(.*?)\\*", r"<i>\\1</i>", clean)
+                story.append(Paragraph(clean, styles["BodyCustom"]))
+        doc.build(story)
+        safe_name = re.sub(r"[^A-Za-z0-9_-]+", "-", request.filename).strip("-")[:70] or "NEXUS-AI-Document"
+        return Response(content=output.getvalue(), media_type="application/pdf",
+                        headers={"Content-Disposition": f'attachment; filename="{safe_name}.pdf"'})
+    except Exception:
+        raise HTTPException(500, "Could not generate the PDF. Please try again.")
+\n@router.post("/api/public/conversations/{conversation_id}/chat")
 async def send_message(conversation_id: str, request: ChatIn, x_guest_id: str | None = Header(default=None)):
     guest = guest_identity(x_guest_id)
     now = int(time.time())
