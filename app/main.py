@@ -158,7 +158,7 @@ async def inference(agent, history):
                 raise HTTPException(503, "Cloudflare credentials not configured")
             url = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/{model}"
             res = await client.post(url, headers={"Authorization": f"Bearer {token}"},
-                json={"messages": prompt, "temperature": agent["temperature"]})
+                json={"messages": prompt, "temperature": agent["temperature"], "max_tokens": 2048})
             res.raise_for_status()
             payload = res.json()
             return payload.get("result", {}).get("response", "")
@@ -175,7 +175,7 @@ async def inference(agent, history):
         else:
             raise HTTPException(400, "Unsupported provider")
         res = await client.post(url, headers={"Authorization": f"Bearer {token}"},
-            json={"model": model, "messages": prompt, "temperature": agent["temperature"]})
+            json={"model": model, "messages": prompt, "temperature": agent["temperature"], "max_tokens": 2048})
         res.raise_for_status()
         return res.json()["choices"][0]["message"]["content"]
 
