@@ -96,6 +96,9 @@ class AgentIn(BaseModel):
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=30000)
 
+class ModelUpdate(BaseModel):
+    model: str = Field(min_length=1, max_length=200)
+
 def rowdict(row):
     return dict(row)
 
@@ -127,6 +130,15 @@ def create_agent(agent: AgentIn, x_api_key: str | None = Header(default=None)):
             aid, agent.name, agent.provider, agent.model or PROVIDERS[agent.provider],
             agent.system_prompt, agent.temperature, int(time.time())))
     return {"id": aid}
+
+@app.patch("/api/agents/{agent_id}/model")
+def update_agent_model(agent_id: str, update: ModelUpdate, x_api_key: str | None = Header(default=None)):
+    authorize(x_api_key)
+    with connection() as db:
+        changed = db.execute("UPDATE agents SET model=? WHERE id=?", (update.model, agent_id)).rowcount
+        if not changed:
+            raise HTTPException(404, "Agent not found")
+    return {"updated": True, "model": update.model}
 
 @app.delete("/api/agents/{agent_id}")
 def delete_agent(agent_id: str, x_api_key: str | None = Header(default=None)):
