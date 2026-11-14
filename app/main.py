@@ -52,7 +52,9 @@ app = FastAPI(title="NEXUS AI", version="0.1.0", lifespan=lifespan)
 
 def authorize(key: str | None):
     expected = os.getenv("ADMIN_API_KEY")
-    if expected and key != expected:
+    if not expected:
+        raise HTTPException(503, "Set ADMIN_API_KEY in the hosting environment before using the API")
+    if key != expected:
         raise HTTPException(401, "Invalid API key")
 
 class AgentIn(BaseModel):
