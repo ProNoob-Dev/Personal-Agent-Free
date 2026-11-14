@@ -157,7 +157,7 @@ async def send_message(conversation_id: str, request: ChatIn, x_guest_id: str | 
     with connection() as db:
         conv = owned_conversation(db, conversation_id, guest)
         usage = db.execute(
-            "INSERT INTO public_usage (guest_id,usage_day,messages) VALUES (?,?,1) ON CONFLICT(guest_id,usage_day) DO UPDATE SET messages=messages+1 RETURNING messages",
+            "INSERT INTO public_usage (guest_id,usage_day,messages) VALUES (?,?,1) ON CONFLICT(guest_id,usage_day) DO UPDATE SET messages=public_usage.messages+1 RETURNING public_usage.messages",
             (guest, day)).fetchone()["messages"]
         if usage > 40:
             raise HTTPException(429, "Daily message limit reached for this browser. Try again tomorrow.")
