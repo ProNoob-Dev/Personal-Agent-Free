@@ -66,6 +66,18 @@ async def lifespan(app):
         db.execute("""CREATE TABLE IF NOT EXISTS runs (
             id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, provider TEXT NOT NULL,
             latency_ms INTEGER NOT NULL, created_at INTEGER NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS public_conversations (
+            id TEXT PRIMARY KEY, guest_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+            title TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS public_messages (
+            id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, role TEXT NOT NULL,
+            content TEXT NOT NULL, created_at INTEGER NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS public_documents (
+            id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, filename TEXT NOT NULL,
+            content_type TEXT NOT NULL, extracted_text TEXT NOT NULL, created_at INTEGER NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS public_usage (
+            guest_id TEXT NOT NULL, usage_day TEXT NOT NULL, messages INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (guest_id, usage_day))""")
         if not db.execute("SELECT 1 FROM agents LIMIT 1").fetchone():
             for name, prompt in [
                 ("Research Agent", "You are a rigorous research assistant. Clearly distinguish facts from uncertainty."),
@@ -232,3 +244,6 @@ def stats(x_api_key: str | None = Header(default=None)):
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     return Path(__file__).with_name("index.html").read_text(encoding="utf-8")
+
+from .public_api import router as public_router
+app.include_router(public_router)
