@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXUS AI — Agent Workspace</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#090c15;color:#e9edff}
+*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+aside{background:#111626;border-right:1px solid #27304a;padding:24px}
+.brand{font-weight:850;font-size:23px;letter-spacing:1px;color:#b6a6ff}
+.sub{color:#8e9bb7;font-size:12px;margin:8px 0 30px}
+main{padding:30px;max-width:1200px;width:100%;margin:auto}
+h1{margin:0 0 8px;font-size:30px}p{color:#a7b3cd}
+.panel{background:#131a2b;border:1px solid #2b3653;border-radius:16px;padding:20px;margin:18px 0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric{font-size:27px;font-weight:750;margin:10px 0 0}
+button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;background:#7c62ed;color:white;font-weight:650}
+button.secondary{background:#28324c}button.danger{background:#793b54}
+input,select,textarea{background:#0b1020;border:1px solid #344160;color:#fff;border-radius:9px;padding:11px;width:100%}
+textarea{min-height:90px}label{display:block;font-size:12px;color:#b4bed8;margin:12px 0 5px}
+.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:12px}
+.agent{border:1px solid #34405c;border-radius:13px;padding:15px;background:#101626}
+.agent h3{margin:0 0 8px}.agent small{color:#8fa2c9;overflow-wrap:anywhere}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1}
+#log{height:340px;overflow:auto;background:#0b1020;border-radius:12px;padding:14px;white-space:pre-wrap}
+.msg{padding:11px;margin:9px 0;border-radius:10px;background:#1e2840;overflow-wrap:anywhere}
+.msg.user{background:#332c64}.msg strong{display:block;margin-bottom:5px;color:#b9b0ff}
+#status{color:#ffbf89;min-height:20px}nav button{width:100%;text-align:left;margin-bottom:9px}
+@media(max-width:760px){.layout{display:block}aside{padding:15px;border-right:0;border-bottom:1px solid #27304a}main{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><div class="layout"><aside><div class="brand">✦ NEXUS AI</div><div class="sub">YOUR PERSONAL AGENT WORKSPACE</div>
+<nav><button onclick="document.querySelector('#workspace').scrollIntoView()">◈ Workspace</button>
+<button class="secondary" onclick="document.querySelector('#create').scrollIntoView()">＋ New Agent</button>
+<button class="secondary" onclick="document.querySelector('#settings').scrollIntoView()">⚙ Settings</button></nav>
+<p>Connect your own model providers. No provider credentials are stored in the browser.</p></aside>
+<main><h1>Agent Command Center</h1><p>Build agents, select models, and run conversations from one dashboard.</p>
+<div class="stats" id="stats"></div>
+<section id="workspace" class="panel"><div class="row"><h2 class="grow">Your Agents</h2><button onclick="load()">Refresh</button></div><div class="agents" id="agents"></div></section>
+<section class="panel"><h2>Agent Chat</h2><label>Active agent</label><select id="selected" onchange="loadMessages()"></select>
+<div id="log" aria-live="polite"></div><div class="row" style="margin-top:12px"><input class="grow" id="prompt" placeholder="Ask your agent anything..." onkeydown="if(event.key==='Enter')send()"><button id="send" onclick="send()">Send</button></div></section>
+<section id="create" class="panel"><h2>Create Agent</h2>
+<label>Name</label><input id="name" placeholder="My Research Agent">
+<label>Provider</label><select id="provider"><option value="cloudflare">Cloudflare Workers AI</option><option value="huggingface">Hugging Face</option><option value="openrouter">OpenRouter</option></select>
+<label>Model ID (leave blank for suggested default)</label><input id="model" placeholder="@cf/meta/llama-3.1-8b-instruct">
+<label>System prompt</label><textarea id="system">You are a helpful, accurate AI assistant.</textarea>
+<button onclick="createAgent()">Create Agent</button></section>
+<section id="settings" class="panel"><h2>Settings</h2><p>If ADMIN_API_KEY is configured on the server, enter it here for this browser session.</p>
+<label>API key</label><input type="password" id="key" autocomplete="off"><button onclick="saveKey()">Apply</button>
+<p>Provider credentials must be configured securely as server environment variables.</p></section>
+<p id="status" role="status"></p></main></div>
+<script>
+let apiKey='';
+const el=id=>document.getElementById(id);
+function setStatus(t){el('status').textContent=t}
+async function api(path,opts={}){const r=await fetch('/api/'+path,{...opts,headers:{'Content-Type':'application/json',...(apiKey?{'X-API-Key':apiKey}:{}),...(opts.headers||{})}});let data;try{data=await r.json()}catch{data={detail:'Invalid server response'}}if(!r.ok)throw Error(data.detail||'Request failed');return data}
+function saveKey(){apiKey=el('key').value;el('key').value='';load()}
+async function load(){try{const [agents,stats]=await Promise.all([api('agents'),api('stats')]);
+el('stats').innerHTML=Object.entries(stats).map(([k,v])=>'<div class="panel"><small>'+k.replaceAll('_',' ')+'</small><div class="metric">'+v+'</div></div>').join('');
+el('agents').replaceChildren();for(const a of agents){const d=document.createElement('div');d.className='agent';const title=document.createElement('h3');title.textContent=a.name;const info=document.createElement('small');info.textContent=a.provider+' · '+a.model;const actions=document.createElement('div');actions.className='row';actions.style.marginTop='15px';const open=document.createElement('button');open.textContent='Chat';open.onclick=()=>{el('selected').value=a.id;loadMessages()};const del=document.createElement('button');del.textContent='Delete';del.className='danger';del.onclick=()=>removeAgent(a.id);actions.append(open,del);d.append(title,info,actions);el('agents').append(d)}
+const previous=el('selected').value;el('selected').replaceChildren();for(const a of agents){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;el('selected').append(o)}if(agents.some(a=>a.id===previous))el('selected').value=previous;await loadMessages();setStatus('')}catch(e){setStatus(e.message)}}
+async function loadMessages(){const id=el('selected').value;el('log').replaceChildren();if(!id)return;try{const messages=await api('agents/'+id+'/messages');for(const m of messages)show(m.role,m.content)}catch(e){setStatus(e.message)}}
+function show(role,content){const d=document.createElement('div');d.className='msg '+role;const label=document.createElement('strong');label.textContent=role==='user'?'You':'Agent';const text=document.createElement('div');text.textContent=content;d.append(label,text);el('log').append(d);el('log').scrollTop=el('log').scrollHeight}
+async function send(){const id=el('selected').value,txt=el('prompt').value.trim();if(!id||!txt)return;el('send').disabled=true;el('prompt').value='';show('user',txt);try{const result=await api('agents/'+id+'/chat',{method:'POST',body:JSON.stringify({message:txt})});show('assistant',result.answer);await refreshStats()}catch(e){show('assistant','Error: '+e.message)}finally{el('send').disabled=false}}
+async function refreshStats(){const s=await api('stats');el('stats').innerHTML=Object.entries(s).map(([k,v])=>'<div class="panel"><small>'+k.replaceAll('_',' ')+'</small><div class="metric">'+v+'</div></div>').join('')}
+async function createAgent(){try{await api('agents',{method:'POST',body:JSON.stringify({name:el('name').value,provider:el('provider').value,model:el('model').value,system_prompt:el('system').value})});el('name').value='';await load()}catch(e){setStatus(e.message)}}
+async function removeAgent(id){if(!confirm('Delete this agent and its messages?'))return;try{await api('agents/'+id,{method:'DELETE'});await load()}catch(e){setStatus(e.message)}}
+load();
+</script></body></html>
