@@ -40,7 +40,17 @@ textarea{min-height:90px}label{display:block;font-size:12px;color:#b4bed8;margin
 <section id="create" class="panel"><h2>Create Agent</h2>
 <label>Name</label><input id="name" placeholder="My Research Agent">
 <label>Provider</label><select id="provider"><option value="cloudflare">Cloudflare Workers AI</option><option value="huggingface">Hugging Face</option><option value="openrouter">OpenRouter</option></select>
-<label>Model ID (leave blank for suggested default)</label><input id="model" placeholder="@cf/meta/llama-3.1-8b-instruct">
+<label>Cloudflare model</label><select id="model">
+<option value="@cf/meta/llama-3.1-8b-instruct">Llama 3.1 8B — balanced default</option>
+<option value="@cf/openai/gpt-oss-20b">OpenAI GPT-OSS 20B — faster reasoning</option>
+<option value="@cf/openai/gpt-oss-120b">OpenAI GPT-OSS 120B — advanced reasoning</option>
+<option value="@cf/meta/llama-3.3-70b-instruct-fp8-fast">Llama 3.3 70B — writing and general chat</option>
+<option value="@cf/google/gemma-4-26b-a4b-it">Gemma 4 26B — general assistant</option>
+<option value="@cf/qwen/qwen3.8-27b">Qwen 3.8 27B — coding and reasoning</option>
+<option value="@cf/zai-org/glm-4.7-flash">GLM 4.7 Flash — fast agent workflows</option>
+<option value="@cf/meta/llama-3.2-3b-instruct">Llama 3.2 3B — lightweight</option>
+</select>
+<p class="sub">Model availability and free-tier eligibility depend on your Cloudflare account and current limits.</p>
 <label>System prompt</label><textarea id="system">You are a helpful, accurate AI assistant.</textarea>
 <button onclick="createAgent()">Create Agent</button></section>
 <section id="settings" class="panel"><h2>Settings</h2><p>If ADMIN_API_KEY is configured on the server, enter it here for this browser session.</p>
