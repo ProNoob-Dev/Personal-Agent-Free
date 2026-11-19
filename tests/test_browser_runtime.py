@@ -23,5 +23,19 @@ async def test_rejects_local_or_unsafe_urls(url):
 
 
 @pytest.mark.asyncio
-async def test_accepts_public_https_url():
+async def test_accepts_public_https_url(monkeypatch):
+    def fake_getaddrinfo(*args, **kwargs):
+        return [(None, None, None, None, ("93.184.216.34", 443))]
+
+    monkeypatch.setattr("app.browser_runtime.socket.getaddrinfo", fake_getaddrinfo)
     assert await validate_public_url("https://example.com") == "https://example.com"
+
+
+@pytest.mark.asyncio
+async def test_rejects_hostname_with_private_dns_answer(monkeypatch):
+    def fake_getaddrinfo(*args, **kwargs):
+        return [(None, None, None, None, ("10.0.0.8", 443))]
+
+    monkeypatch.setattr("app.browser_runtime.socket.getaddrinfo", fake_getaddrinfo)
+    with pytest.raises(UnsafeBrowserTarget):
+        await validate_public_url("https://example.com")
