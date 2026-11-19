@@ -37,6 +37,7 @@ class RemoteBrowserSession:
     browser: Browser
     context: BrowserContext
     page: Page
+    browser_use_session: Any | None = None
 
 
 def _is_public_ip(value: str) -> bool:
@@ -214,6 +215,11 @@ class CloudflareBrowserManager:
         async with self._lock:
             session = self.sessions.pop(session_id, None)
         if session:
+            if session.browser_use_session is not None:
+                try:
+                    await session.browser_use_session.kill()
+                except Exception:
+                    pass
             try:
                 await session.browser.close()
             finally:
