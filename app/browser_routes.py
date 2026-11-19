@@ -168,10 +168,8 @@ async def run_browser_use_task(
         }
     except Exception as exc:
         raise HTTPException(502, f"Browser Use task failed: {type(exc).__name__}") from exc
-    finally:
-        # Keep the Browser Use CDP connection attached until the user closes
-        # this shared remote session. The manager closes it during teardown.
-        pass
+    # Keep the Browser Use CDP connection attached until the user closes
+    # this shared remote session. The manager closes it during teardown.
 
 
 @router.delete("/sessions/{session_id}")
