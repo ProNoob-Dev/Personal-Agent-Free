@@ -115,13 +115,23 @@ async def run_browser_use_task(
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
 
-    api_key = os.getenv("BROWSER_USE_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    base_url = os.getenv("BROWSER_USE_LLM_BASE_URL", "https://openrouter.ai/api/v1")
-    model = os.getenv("BROWSER_USE_MODEL", "openai/gpt-4o-mini")
-    if not api_key:
+    # Browser Use runs on Cloudflare Workers AI; OpenRouter is intentionally not used.
+    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    api_key = (
+        os.getenv("CLOUDFLARE_AI_API_TOKEN")
+        or os.getenv("CLOUDFLARE_API_TOKEN")
+        or ""
+    ).strip()
+    base_url = (
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+        if account_id else ""
+    )
+    model = os.getenv("BROWSER_USE_MODEL", "@cf/meta/llama-3.3-70b-instruct-fp8-fast")
+    if not account_id or not api_key:
         raise HTTPException(
             503,
-            "Configure BROWSER_USE_LLM_API_KEY (or OPENROUTER_API_KEY) and BROWSER_USE_MODEL.",
+            "Configure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_API_TOKEN "
+            "(or CLOUDFLARE_API_TOKEN) with Workers AI access.",
         )
 
     try:
