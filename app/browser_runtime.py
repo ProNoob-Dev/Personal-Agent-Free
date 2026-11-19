@@ -42,14 +42,7 @@ class RemoteBrowserSession:
 
 def _is_public_ip(value: str) -> bool:
     ip = ipaddress.ip_address(value)
-    return not (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    )
+    return ip.is_global
 
 
 async def validate_public_url(url: str) -> str:
@@ -180,8 +173,12 @@ class CloudflareBrowserManager:
             return await self.describe(session)
         except Exception:
             if browser is not None:
-                await browser.close()
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
             await playwright.stop()
+            # Cloudflare expires an unconnected session automatically after keep_alive.
             raise
 
     def get(self, session_id: str) -> RemoteBrowserSession:
@@ -227,6 +224,8 @@ class CloudflareBrowserManager:
                     pass
             try:
                 await session.browser.close()
+            except Exception:
+                pass
             finally:
                 await session.playwright.stop()
 
