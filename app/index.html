@@ -55,7 +55,7 @@ textarea{min-height:90px}label{display:block;font-size:12px;color:#b4bed8;margin
 <label>System prompt</label><textarea id="system">You are a helpful, accurate AI assistant.</textarea>
 <button onclick="createAgent()">Create Agent</button></section>
 <section id="settings" class="panel"><h2>Settings</h2><p>If ADMIN_API_KEY is configured on the server, enter it here for this browser session.</p>
-<label>API key</label><input type="password" id="key" autocomplete="off"><button onclick="saveKey()">Apply</button>
+<label>API key</label><input type="password" id="key" autocomplete="off" placeholder="Enter Admin API key"><button id="apply-key" onclick="saveKey()">Apply</button><p id="key-status" role="status" aria-live="polite">Enter your server Admin API key, then select Apply.</p>
 <p>Provider credentials must be configured securely as server environment variables.</p></section>
 <p id="status" role="status"></p></main></div>
 <script>
@@ -63,7 +63,16 @@ let apiKey='';
 const el=id=>document.getElementById(id);
 function setStatus(t){el('status').textContent=t}
 async function api(path,opts={}){const r=await fetch('/api/'+path,{...opts,headers:{'Content-Type':'application/json',...(apiKey?{'X-API-Key':apiKey}:{}),...(opts.headers||{})}});let data;try{data=await r.json()}catch{data={detail:'Invalid server response'}}if(!r.ok)throw Error(data.detail||'Request failed');return data}
-function saveKey(){apiKey=el('key').value;el('key').value='';load()}
+async function saveKey(){
+const value=el('key').value.trim();
+const status=el('key-status');
+const button=el('apply-key');
+if(!value){status.textContent='Enter your Admin API key first.';el('key').focus();return}
+apiKey=value;el('key').value='';button.disabled=true;status.textContent='Checking API key…';
+try{await api('stats');status.textContent='API key accepted. Loading your dashboard…';await load();status.textContent='Connected. Your Admin API key was accepted.'}
+catch(e){apiKey='';status.textContent='Could not authenticate: '+e.message+' Check the key and try again.'}
+finally{button.disabled=false}
+}
 async function load(){try{const [agents,stats]=await Promise.all([api('agents'),api('stats')]);
 el('stats').innerHTML=Object.entries(stats).map(([k,v])=>'<div class="panel"><small>'+k.replaceAll('_',' ')+'</small><div class="metric">'+v+'</div></div>').join('');
 el('agents').replaceChildren();for(const a of agents){const d=document.createElement('div');d.className='agent';const title=document.createElement('h3');title.textContent=a.name;const info=document.createElement('small');info.textContent=a.provider+' · '+a.model;const actions=document.createElement('div');actions.className='row';actions.style.marginTop='15px';const open=document.createElement('button');open.textContent='Chat';open.onclick=()=>{el('selected').value=a.id;loadMessages()};const del=document.createElement('button');del.textContent='Delete';del.className='danger';del.onclick=()=>removeAgent(a.id);actions.append(open,del);d.append(title,info,actions);el('agents').append(d)}
