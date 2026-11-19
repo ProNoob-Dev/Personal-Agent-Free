@@ -97,7 +97,10 @@ class CloudflareBrowserManager:
             )
 
     def _base(self) -> str:
-        return f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/browser-run"
+        return f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/browser-rendering"
+
+    def _websocket_base(self) -> str:
+        return f"wss://api.cloudflare.com/client/v4/accounts/{self.account_id}/browser-run"
 
     async def create(self, initial_url: str = "https://example.com") -> dict[str, Any]:
         self._require_config()
@@ -116,15 +119,21 @@ class CloudflareBrowserManager:
         cloudflare_id = result.get("sessionId") or result.get("session_id")
         if not cloudflare_id:
             raise BrowserConfigurationError("Cloudflare response did not include a browser session ID")
-        targets = result.get("targets") or []
-        live_view_url = next(
-            (target.get("devtoolsFrontendUrl") for target in targets if target.get("devtoolsFrontendUrl")),
-            None,
-        )
-        websocket_url = (
-            f"wss://api.cloudflare.com/client/v4/accounts/{self.account_id}"
-            f"/browser-run/devtools/browser/{cloudflare_id}"
-        )
+        live_view_url = None
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                live_response = await client.post(
+                    f"{self._base()}/devtools/browser/{cloudflare_id}/live_view",
+                    headers={"Authorization": f"Bearer {self.api_token}"},
+                )
+                live_response.raise_for_status()
+                live_payload = live_response.json()
+                live_result = live_payload.get("result") or live_payload
+                live_view_url = live_result.get("devtoolsFrontendUrl")
+        except (httpx.HTTPError, ValueError):
+            # Live view is optional; the browser API remains usable without it.
+            live_view_url = None
+        websocket_url = f"{self._websocket_base()}/devtools/browser/{cloudflare_id}"
         playwright = await async_playwright().start()
         browser: Browser | None = None
         try:
@@ -228,6 +237,14 @@ class CloudflareBrowserManager:
                 pass
             finally:
                 await session.playwright.stop()
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    await client.delete(
+                        f"{self._base()}/devtools/browser/{session.cloudflare_id}",
+                        headers={"Authorization": f"Bearer {self.api_token}"},
+                    )
+            except httpx.HTTPError:
+                pass
 
 
 browser_manager = CloudflareBrowserManager()
