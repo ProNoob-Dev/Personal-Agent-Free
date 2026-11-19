@@ -139,7 +139,9 @@ class CloudflareBrowserManager:
                 headers={"Authorization": f"Bearer {self.api_token}"},
                 timeout=30000,
             )
-            context = await browser.new_context()
+            # Reuse Browser Run's default context so Playwright and Browser Use
+            # operate inside the same request-guarded browser context.
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
             context.set_default_timeout(15000)
             context.set_default_navigation_timeout(30000)
 
@@ -155,7 +157,7 @@ class CloudflareBrowserManager:
                     await route.abort("blockedbyclient")
 
             await context.route("**/*", guard_request)
-            page = await context.new_page()
+            page = context.pages[0] if context.pages else await context.new_page()
             session = RemoteBrowserSession(
                 id=str(uuid.uuid4()),
                 cloudflare_id=cloudflare_id,
