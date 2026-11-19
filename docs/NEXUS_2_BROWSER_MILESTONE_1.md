@@ -16,10 +16,14 @@ Create a Cloudflare API token with **Browser Rendering - Edit** permission. Set:
 Do not reuse a broad account API token. Keep these values in the backend's secret environment configuration, never in the frontend.
 
 ## AI engine setup
-Browser Use is optional for deterministic browser navigation and inspection. To enable natural-language read-only browsing, set:
-- `BROWSER_USE_LLM_API_KEY` (or reuse `OPENROUTER_API_KEY`)
-- `BROWSER_USE_LLM_BASE_URL` (defaults to OpenRouter's OpenAI-compatible endpoint)
-- `BROWSER_USE_MODEL` (defaults to `openai/gpt-4o-mini`)
+Browser Use is optional for deterministic browser navigation and inspection. Natural-language read-only browsing uses **Cloudflare Workers AI** directly through its OpenAI-compatible Chat Completions endpoint; OpenRouter is not used by this browser agent.
+
+Set:
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_AI_API_TOKEN` (recommended dedicated token with Workers AI access; `CLOUDFLARE_API_TOKEN` is accepted as a fallback)
+- `BROWSER_USE_MODEL` (defaults to `@cf/meta/llama-3.3-70b-instruct-fp8-fast`)
+
+The AI token is separate from `CLOUDFLARE_BROWSER_RUN_TOKEN`; the latter needs **Browser Rendering - Edit** permission to create remote browser sessions.
 
 ## API
 All endpoints require `X-API-Key: <ADMIN_API_KEY>`.
