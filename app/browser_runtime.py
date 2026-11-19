@@ -151,6 +151,11 @@ class CloudflareBrowserManager:
                 if request_url.startswith(("about:", "data:", "blob:")):
                     await route.continue_()
                     return
+                # Milestone 1 is read-only: block network mutation methods even
+                # if an agent is tricked into clicking a submit/action control.
+                if route.request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+                    await route.abort("blockedbyclient")
+                    return
                 try:
                     await validate_public_url(request_url)
                     await route.continue_()
