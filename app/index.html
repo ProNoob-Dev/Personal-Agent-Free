@@ -35,6 +35,17 @@ textarea{min-height:90px}label{display:block;font-size:12px;color:#b4bed8;margin
 <main><h1>Agent Command Center</h1><p>Build agents, select models, and run conversations from one dashboard.</p>
 <div class="stats" id="stats"></div>
 <section id="workspace" class="panel"><div class="row"><h2 class="grow">Your Agents</h2><button onclick="load()">Refresh</button></div><div class="agents" id="agents"></div></section>
+
+<section class="panel" id="browser-workspace">
+  <div class="row"><h2 class="grow">NEXUS Remote Browser</h2><span id="browser-state" class="sub">Not connected</span></div>
+  <p>Cloudflare-hosted Chromium · Playwright controls · Browser Use research</p>
+  <label>Website URL</label><div class="row"><input id="browser-url" class="grow" value="https://example.com" placeholder="https://example.com"><button onclick="startBrowser()">Launch browser</button></div>
+  <div class="row" style="margin-top:10px"><button class="secondary" onclick="navigateBrowser()">Navigate</button><button class="secondary" onclick="inspectBrowser()">Inspect page</button><a id="browser-live-link" target="_blank" rel="noopener noreferrer" style="color:#b6a6ff;display:none">Open live browser ↗</a></div>
+  <label>Ask Browser Use to research (read-only)</label><div class="row"><input id="browser-task" class="grow" placeholder="Search this site for its pricing and summarize"><button onclick="runBrowserTask()">Run task</button></div>
+  <div id="browser-result" class="msg" style="margin-top:14px;min-height:60px">Your browser results will appear here.</div>
+  <img id="browser-shot" alt="Latest remote browser screenshot" style="display:none;width:100%;max-height:460px;object-fit:contain;border-radius:12px;border:1px solid #344160;margin-top:12px;background:#0b1020">
+  <div class="row" style="margin-top:12px"><button class="danger" onclick="closeBrowser()">Close browser</button><small style="color:#8e9bb7">Milestone 1: public-page browsing only. Login and submissions are disabled.</small></div>
+</section>
 <section class="panel"><h2>Agent Chat</h2><label>Active agent</label><select id="selected" onchange="loadMessages()"></select>
 <div id="log" aria-live="polite"></div><div class="row" style="margin-top:12px"><input class="grow" id="prompt" placeholder="Ask your agent anything..." onkeydown="if(event.key==='Enter')send()"><button id="send" onclick="send()">Send</button></div></section>
 <section id="create" class="panel"><h2>Create Agent</h2>
@@ -63,5 +74,15 @@ async function send(){const id=el('selected').value,txt=el('prompt').value.trim(
 async function refreshStats(){const s=await api('stats');el('stats').innerHTML=Object.entries(s).map(([k,v])=>'<div class="panel"><small>'+k.replaceAll('_',' ')+'</small><div class="metric">'+v+'</div></div>').join('')}
 async function createAgent(){try{await api('agents',{method:'POST',body:JSON.stringify({name:el('name').value,provider:el('provider').value,model:el('model').value,system_prompt:el('system').value})});el('name').value='';await load()}catch(e){setStatus(e.message)}}
 async function removeAgent(id){if(!confirm('Delete this agent and its messages?'))return;try{await api('agents/'+id,{method:'DELETE'});await load()}catch(e){setStatus(e.message)}}
-load();
+
+let browserSessionId='';
+function browserResult(value){const target=el('browser-result');target.textContent=typeof value==='string'?value:JSON.stringify(value,null,2)}
+async function browserApi(path,opts={}){return api('browser/'+path,opts)}
+async function applyBrowserData(data){el('browser-state').textContent=data.title||data.status||'Connected';if(data.url)el('browser-url').value=data.url;if(data.live_view_url){const a=el('browser-live-link');a.href=data.live_view_url;a.style.display='inline'}if(data.screenshot_base64){const img=el('browser-shot');img.src='data:image/jpeg;base64,'+data.screenshot_base64;img.style.display='block'}browserResult({title:data.title,url:data.url,text:data.text||undefined,links:data.links||undefined})}
+async function startBrowser(){try{setStatus('Starting Cloudflare browser…');const d=await browserApi('sessions',{method:'POST',body:JSON.stringify({url:el('browser-url').value.trim()})});browserSessionId=d.session_id;await applyBrowserData(d);setStatus('Remote browser connected')}catch(e){setStatus(e.message);browserResult('Browser error: '+e.message)}}
+async function navigateBrowser(){if(!browserSessionId)return setStatus('Launch a browser first');try{setStatus('Navigating…');const d=await browserApi('sessions/'+browserSessionId+'/navigate',{method:'POST',body:JSON.stringify({url:el('browser-url').value.trim()})});await applyBrowserData(d);setStatus('Navigation complete')}catch(e){setStatus(e.message);browserResult('Navigation error: '+e.message)}}
+async function inspectBrowser(){if(!browserSessionId)return setStatus('Launch a browser first');try{const d=await browserApi('sessions/'+browserSessionId+'/inspect');await applyBrowserData(d)}catch(e){setStatus(e.message)}}
+async function runBrowserTask(){if(!browserSessionId)return setStatus('Launch a browser first');const task=el('browser-task').value.trim();if(!task)return;try{setStatus('Browser Use is researching…');const d=await browserApi('sessions/'+browserSessionId+'/agent-task',{method:'POST',body:JSON.stringify({task,max_steps:6})});browserResult(d.result);el('browser-state').textContent=d.session.title||'Task complete';setStatus('Research task complete')}catch(e){setStatus(e.message);browserResult('Agent error: '+e.message)}}
+async function closeBrowser(){if(!browserSessionId)return;try{await browserApi('sessions/'+browserSessionId,{method:'DELETE'});browserSessionId='';el('browser-state').textContent='Closed';el('browser-shot').style.display='none';el('browser-live-link').style.display='none';browserResult('Browser session closed.')}catch(e){setStatus(e.message)}}
+\nload();
 </script></body></html>
