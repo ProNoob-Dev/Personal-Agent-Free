@@ -45,7 +45,7 @@ Install dependencies, set the environment variables, then start the existing app
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
-pytest -q
+python -m pytest -q
 ```
 
 ## Known limitations
