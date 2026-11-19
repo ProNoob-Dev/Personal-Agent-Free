@@ -143,13 +143,15 @@ async def run_browser_use_task(
     )
     browser_session = None
     try:
-        browser_session = BrowserSession(
-            browser_profile=BrowserProfile(
-                cdp_url=session.websocket_url,
-                is_local=False,
-            ),
-            headers={"Authorization": f"Bearer {browser_manager.api_token}"},
-        )
+        if session.browser_use_session is None:
+            session.browser_use_session = BrowserSession(
+                browser_profile=BrowserProfile(
+                    cdp_url=session.websocket_url,
+                    is_local=False,
+                ),
+                headers={"Authorization": f"Bearer {browser_manager.api_token}"},
+            )
+        browser_session = session.browser_use_session
         llm = ChatOpenAI(model=model, base_url=base_url, api_key=api_key)
         agent = Agent(
             task=safe_task,
@@ -167,11 +169,9 @@ async def run_browser_use_task(
     except Exception as exc:
         raise HTTPException(502, f"Browser Use task failed: {type(exc).__name__}") from exc
     finally:
-        if browser_session is not None:
-            try:
-                await browser_session.stop()
-            except Exception:
-                pass
+        # Keep the Browser Use CDP connection attached until the user closes
+        # this shared remote session. The manager closes it during teardown.
+        pass
 
 
 @router.delete("/sessions/{session_id}")
