@@ -11,6 +11,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from .browser_routes import router as browser_router
+
 DB = os.getenv("DATABASE_PATH", "./nexus.db")
 PROVIDERS = {
     "cloudflare": "@cf/meta/llama-3.1-8b-instruct",
@@ -48,7 +50,8 @@ async def lifespan(app):
                     prompt, 0.7, int(time.time())))
     yield
 
-app = FastAPI(title="NEXUS AI", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="NEXUS AI", version="0.2.0", lifespan=lifespan)
+app.include_router(browser_router)
 
 def authorize(key: str | None):
     expected = os.getenv("ADMIN_API_KEY")
